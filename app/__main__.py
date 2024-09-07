@@ -2,11 +2,13 @@ import os
 
 import click
 from classifier import MODELS_DIR, Classifier
+from dataset import SHAPES_DIR, Dataset
 
 
 @click.group()
 def cli() -> None:
-    pass
+    if not os.path.exists(SHAPES_DIR):
+        Dataset()
 
 
 @cli.command(help="Trains the model for a fixed number of epochs (dataset iterations).")
