@@ -19,7 +19,7 @@ class Classifier:
         self.__best_model_path = best_model_path
         self.__verbose = verbose
         self.__dataset = Dataset()
-        self.__best_results = {"accuracy": 0.0, "loss": 100.0}
+        self.__best_results = {"acc": 0.0, "loss": 100.0}
 
         if os.path.exists(self.__model_path):
             self.__load_model()
@@ -97,7 +97,7 @@ class Classifier:
                 return_dict=True
             )
 
-            if (self.__best_results["accuracy"] < results["accuracy"]):
+            if (self.__best_results["acc"] < results["acc"]):
                 self.__best_results = results
                 self.__model.save(self.__best_model_path)
 
