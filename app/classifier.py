@@ -8,6 +8,47 @@ from dataset import Captcha, Dataset
 MODELS_DIR = os.path.join(os.path.dirname(os.path.relpath(__file__)), "models")
 
 
+class CustomPolynomialDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
+    def __init__(
+        self,
+        learning_rate,
+        power=1.0,
+        max_steps=1,
+        name="CustomPolynomialDecay",
+    ):
+        super().__init__()
+        self.learning_rate = learning_rate
+        self.power = power
+        self.max_steps = max_steps
+        self.name = name
+
+    def __call__(self, step):
+        with tf.keras.ops.name_scope(self.name):
+            learning_rate = tf.keras.ops.convert_to_tensor(
+                self.learning_rate
+            )
+            dtype = learning_rate.dtype
+            power = tf.keras.ops.cast(self.power, dtype)
+            max_steps = tf.keras.ops.cast(self.max_steps, dtype)
+            step_num = tf.keras.ops.cast(step, dtype)
+
+            return tf.keras.ops.multiply(
+                learning_rate,
+                tf.keras.ops.power(
+                    1 - tf.keras.ops.divide(step_num, max_steps),
+                    power
+                )
+            )
+
+    def get_config(self):
+        return {
+            "learning_rate": self.learning_rate,
+            "power": self.power,
+            "max_steps": self.max_steps,
+            "name": self.name,
+        }
+
+
 class Classifier:
     def __init__(
         self,
@@ -57,8 +98,13 @@ class Classifier:
         self.__model.add(tf.keras.layers.GlobalAvgPool2D())
         self.__model.add(tf.keras.layers.Softmax())
 
+        learning_rate_fn = CustomPolynomialDecay(
+            0.1,
+            4,
+            3762
+        )
         self.__model.compile(
-            optimizer=tf.keras.optimizers.RMSprop(learning_rate=0.0001),
+            optimizer=tf.keras.optimizers.RMSprop(learning_rate=learning_rate_fn),
             loss="sparse_categorical_crossentropy",
             metrics=["acc"]
         )
