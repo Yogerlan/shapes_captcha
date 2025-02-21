@@ -14,10 +14,11 @@ def cli() -> None:
 @cli.command(help="Trains the model for a fixed number of epochs (dataset iterations).")
 @click.option("-b", "--batch", default=32, help="Number of samples per gradient update.")
 @click.option("-e", "--epochs", default=32, help="Number of epochs to train the model.")
-def train(batch: int, epochs: int) -> None:
+@click.option("-c", "--calc", default=4, help="Number of epochs to calculate best model.")
+def train(batch: int, epochs: int, calc: int) -> None:
     classifier = Classifier()
     classifier.load_best_results()
-    classifier.fit_and_evaluate(batch, epochs)
+    classifier.fit_and_evaluate(batch, epochs, calc)
 
 
 @cli.command(help="Solves a captcha image puzzle.")

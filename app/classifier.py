@@ -1,8 +1,7 @@
 import os
 
+import keras
 import numpy as np
-import tensorflow as tf
-
 from dataset import Captcha, Dataset
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.relpath(__file__)), "models")
@@ -27,50 +26,56 @@ class Classifier:
             self.__create_model()
 
     def __load_model(self) -> None:
-        self.__model = tf.keras.models.load_model(self.__model_path)
+        self.__model = keras.models.load_model(self.__model_path)
 
         if self.__verbose:
             self.__model.summary()
 
     def __create_model(self) -> None:
-        self.__model = tf.keras.models.Sequential([
-            tf.keras.layers.Input((64, 64, 3))
+        self.__model = keras.models.Sequential([
+            keras.layers.Input((64, 64, 3))
         ])
 
         for filters in [128, 256, 512]:
             for _ in range(3):
-                self.__model.add(tf.keras.layers.Conv2D(
+                self.__model.add(keras.layers.Conv2D(
                     filters, 3, padding="same",
-                    kernel_initializer=tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.01)))
-                self.__model.add(tf.keras.layers.BatchNormalization())
-                self.__model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
+                    kernel_initializer=keras.initializers.RandomNormal(mean=0.0, stddev=0.01)))
+                self.__model.add(keras.layers.BatchNormalization())
+                self.__model.add(keras.layers.LeakyReLU(alpha=0.1))
 
             if filters != 512:
-                self.__model.add(tf.keras.layers.MaxPooling2D())
+                self.__model.add(keras.layers.MaxPooling2D())
 
-            self.__model.add(tf.keras.layers.Dropout(0.5))
+            self.__model.add(keras.layers.Dropout(0.5))
 
-        self.__model.add(tf.keras.layers.Conv2D(
+        self.__model.add(keras.layers.Conv2D(
             5, 1, padding="same",
-            kernel_initializer=tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.01)))
-        self.__model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
-        self.__model.add(tf.keras.layers.GlobalAvgPool2D())
-        self.__model.add(tf.keras.layers.Softmax())
+            kernel_initializer=keras.initializers.RandomNormal(mean=0.0, stddev=0.01)))
+        self.__model.add(keras.layers.LeakyReLU(alpha=0.1))
+        self.__model.add(keras.layers.GlobalAvgPool2D())
+        self.__model.add(keras.layers.Softmax())
 
         self.__model.compile(
-            optimizer=tf.keras.optimizers.RMSprop(learning_rate=0.0001),
+            optimizer=keras.optimizers.SGD(
+                learning_rate=keras.optimizers.schedules.InverseTimeDecay(
+                    initial_learning_rate=0.1,
+                    decay_steps=1.0,
+                    decay_rate=0.5
+                )
+            ),
             loss="sparse_categorical_crossentropy",
-            metrics=["acc"]
+            metrics=["accuracy"]
         )
 
-        tf.keras.models.save_model(self.__model, self.__model_path)
+        keras.models.save_model(self.__model, self.__model_path)
 
         if self.__verbose:
             self.__model.summary()
 
     def load_best_results(self) -> None:
         if os.path.exists(self.__best_model_path):
-            best_model = tf.keras.models.load_model(self.__best_model_path)
+            best_model = keras.models.load_model(self.__best_model_path)
             self.__best_results = best_model.evaluate(
                 self.__dataset.x_test,
                 self.__dataset.y_test,
@@ -81,13 +86,15 @@ class Classifier:
         if self.__verbose:
             print("Best results:", self.__best_results)
 
-    def fit_and_evaluate(self, batch_size=32, epochs=32) -> None:
-        for _ in range(epochs):
+    def fit_and_evaluate(self, batch_size=32, epochs=32, calc_for_each=4) -> None:
+        e = epochs
+
+        while e > 0:
             self.__model.fit(
                 self.__dataset.x_train_augmented,
                 self.__dataset.y_train,
                 batch_size=batch_size,
-                epochs=1
+                epochs=min(calc_for_each, e)
             )
             self.__model.save(self.__model_path)
             results = self.__model.evaluate(
@@ -97,12 +104,14 @@ class Classifier:
                 return_dict=True
             )
 
-            if (self.__best_results["acc"] < results["acc"]):
+            if (self.__best_results["accuracy"] < results["accuracy"]):
                 self.__best_results = results
                 self.__model.save(self.__best_model_path)
 
                 if self.__verbose:
                     print("Best results:", self.__best_results)
+
+            e -= calc_for_each
 
     def predict(self, captcha_path: str) -> list[int]:
         captcha = Captcha(captcha_path)
