@@ -1,48 +1,53 @@
 import os
 
+import keras
 import numpy as np
-import tensorflow as tf
-
 from dataset import Captcha, Dataset
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.relpath(__file__)), "models")
 
 
-class CustomPolynomialDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
+class CustomPolynomialDecay(keras.optimizers.schedules.LearningRateSchedule):
     def __init__(
         self,
-        learning_rate,
+        initial_learning_rate,
         power=1.0,
         max_steps=1,
         name="CustomPolynomialDecay",
     ):
         super().__init__()
-        self.learning_rate = learning_rate
-        self.power = power
-        self.max_steps = max_steps
+        self.initial_learning_rate = keras.ops.convert_to_tensor(
+            initial_learning_rate
+        )
+        dtype = self.initial_learning_rate.dtype
+        self.current_learning_rate = self.initial_learning_rate
+        self.power = keras.ops.cast(power, dtype)
+        self.max_steps = keras.ops.cast(max_steps, dtype)
         self.name = name
 
     def __call__(self, step):
-        with tf.keras.ops.name_scope(self.name):
-            learning_rate = tf.keras.ops.convert_to_tensor(
-                self.learning_rate
+        with keras.ops.name_scope(self.name):
+            current_step = keras.ops.cast(
+                step,
+                self.initial_learning_rate.dtype
             )
-            dtype = learning_rate.dtype
-            power = tf.keras.ops.cast(self.power, dtype)
-            max_steps = tf.keras.ops.cast(self.max_steps, dtype)
-            step_num = tf.keras.ops.cast(step, dtype)
-
-            return tf.keras.ops.multiply(
-                learning_rate,
-                tf.keras.ops.power(
-                    1 - tf.keras.ops.divide(step_num, max_steps),
-                    power
+            self.current_learning_rate = keras.ops.multiply(
+                self.initial_learning_rate,
+                keras.ops.power(
+                    1 - keras.ops.divide(
+                        current_step,
+                        self.max_steps
+                    ),
+                    self.power
                 )
             )
 
+            return self.current_learning_rate
+
     def get_config(self):
         return {
-            "learning_rate": self.learning_rate,
+            "initial_learning_rate": self.initial_learning_rate,
+            "current_learning_rate": self.current_learning_rate,
             "power": self.power,
             "max_steps": self.max_steps,
             "name": self.name,
@@ -68,35 +73,35 @@ class Classifier:
             self.__create_model()
 
     def __load_model(self) -> None:
-        self.__model = tf.keras.models.load_model(self.__model_path)
+        self.__model = keras.models.load_model(self.__model_path)
 
         if self.__verbose:
             self.__model.summary()
 
     def __create_model(self) -> None:
-        self.__model = tf.keras.models.Sequential([
-            tf.keras.layers.Input((64, 64, 3))
+        self.__model = keras.models.Sequential([
+            keras.layers.Input((64, 64, 3))
         ])
 
         for filters in [128, 256, 512]:
             for _ in range(3):
-                self.__model.add(tf.keras.layers.Conv2D(
+                self.__model.add(keras.layers.Conv2D(
                     filters, 3, padding="same",
-                    kernel_initializer=tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.01)))
-                self.__model.add(tf.keras.layers.BatchNormalization())
-                self.__model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
+                    kernel_initializer=keras.initializers.RandomNormal(mean=0.0, stddev=0.01)))
+                self.__model.add(keras.layers.BatchNormalization())
+                self.__model.add(keras.layers.LeakyReLU(alpha=0.1))
 
             if filters != 512:
-                self.__model.add(tf.keras.layers.MaxPooling2D())
+                self.__model.add(keras.layers.MaxPooling2D())
 
-            self.__model.add(tf.keras.layers.Dropout(0.5))
+            self.__model.add(keras.layers.Dropout(0.5))
 
-        self.__model.add(tf.keras.layers.Conv2D(
+        self.__model.add(keras.layers.Conv2D(
             5, 1, padding="same",
-            kernel_initializer=tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.01)))
-        self.__model.add(tf.keras.layers.LeakyReLU(alpha=0.1))
-        self.__model.add(tf.keras.layers.GlobalAvgPool2D())
-        self.__model.add(tf.keras.layers.Softmax())
+            kernel_initializer=keras.initializers.RandomNormal(mean=0.0, stddev=0.01)))
+        self.__model.add(keras.layers.LeakyReLU(alpha=0.1))
+        self.__model.add(keras.layers.GlobalAvgPool2D())
+        self.__model.add(keras.layers.Softmax())
 
         learning_rate_fn = CustomPolynomialDecay(
             0.1,
@@ -104,19 +109,19 @@ class Classifier:
             3762
         )
         self.__model.compile(
-            optimizer=tf.keras.optimizers.RMSprop(learning_rate=learning_rate_fn),
+            optimizer=keras.optimizers.RMSprop(learning_rate=learning_rate_fn),
             loss="sparse_categorical_crossentropy",
             metrics=["acc"]
         )
 
-        tf.keras.models.save_model(self.__model, self.__model_path)
+        keras.models.save_model(self.__model, self.__model_path)
 
         if self.__verbose:
             self.__model.summary()
 
     def load_best_results(self) -> None:
         if os.path.exists(self.__best_model_path):
-            best_model = tf.keras.models.load_model(self.__best_model_path)
+            best_model = keras.models.load_model(self.__best_model_path)
             self.__best_results = best_model.evaluate(
                 self.__dataset.x_test,
                 self.__dataset.y_test,
