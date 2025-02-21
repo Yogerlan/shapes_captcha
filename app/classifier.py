@@ -57,15 +57,15 @@ class Classifier:
         self.__model.add(keras.layers.Softmax())
 
         self.__model.compile(
-            optimizer=keras.optimizers.SGD(
+            optimizer=keras.optimizers.RMSprop(
                 learning_rate=keras.optimizers.schedules.InverseTimeDecay(
                     initial_learning_rate=0.1,
                     decay_steps=1.0,
-                    decay_rate=0.5
+                    decay_rate=0.25
                 )
             ),
             loss="sparse_categorical_crossentropy",
-            metrics=["accuracy"]
+            metrics=["acc"]
         )
 
         keras.models.save_model(self.__model, self.__model_path)
@@ -104,7 +104,7 @@ class Classifier:
                 return_dict=True
             )
 
-            if (self.__best_results["accuracy"] < results["accuracy"]):
+            if (self.__best_results["acc"] < results["acc"]):
                 self.__best_results = results
                 self.__model.save(self.__best_model_path)
 
