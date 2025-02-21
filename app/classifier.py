@@ -3,6 +3,7 @@ import os
 import keras
 import numpy as np
 from dataset import Captcha, Dataset
+from keras.src import ops
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.relpath(__file__)), "models")
 
@@ -16,25 +17,25 @@ class CustomPolynomialDecay(keras.optimizers.schedules.LearningRateSchedule):
         name="CustomPolynomialDecay",
     ):
         super().__init__()
-        self.initial_learning_rate = keras.ops.convert_to_tensor(
+        self.initial_learning_rate = ops.convert_to_tensor(
             initial_learning_rate
         )
         dtype = self.initial_learning_rate.dtype
         self.current_learning_rate = self.initial_learning_rate
-        self.power = keras.ops.cast(power, dtype)
-        self.max_steps = keras.ops.cast(max_steps, dtype)
+        self.power = ops.cast(power, dtype)
+        self.max_steps = ops.cast(max_steps, dtype)
         self.name = name
 
     def __call__(self, step):
-        with keras.ops.name_scope(self.name):
-            current_step = keras.ops.cast(
+        with ops.name_scope(self.name):
+            current_step = ops.cast(
                 step,
                 self.initial_learning_rate.dtype
             )
-            self.current_learning_rate = keras.ops.multiply(
+            self.current_learning_rate = ops.multiply(
                 self.initial_learning_rate,
-                keras.ops.power(
-                    1 - keras.ops.divide(
+                ops.power(
+                    1 - ops.divide(
                         current_step,
                         self.max_steps
                     ),
