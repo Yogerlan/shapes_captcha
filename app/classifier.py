@@ -21,7 +21,6 @@ class CustomPolynomialDecay(keras.optimizers.schedules.LearningRateSchedule):
             initial_learning_rate
         )
         dtype = self.initial_learning_rate.dtype
-        self.current_learning_rate = self.initial_learning_rate
         self.power = ops.cast(power, dtype)
         self.max_steps = ops.cast(max_steps, dtype)
         self.name = name
@@ -32,7 +31,7 @@ class CustomPolynomialDecay(keras.optimizers.schedules.LearningRateSchedule):
                 step,
                 self.initial_learning_rate.dtype
             )
-            self.current_learning_rate = ops.multiply(
+            current_learning_rate = ops.multiply(
                 self.initial_learning_rate,
                 ops.power(
                     1 - ops.divide(
@@ -43,12 +42,11 @@ class CustomPolynomialDecay(keras.optimizers.schedules.LearningRateSchedule):
                 )
             )
 
-            return self.current_learning_rate
+            return current_learning_rate
 
     def get_config(self):
         return {
             "initial_learning_rate": self.initial_learning_rate,
-            "current_learning_rate": self.current_learning_rate,
             "power": self.power,
             "max_steps": self.max_steps,
             "name": self.name,
